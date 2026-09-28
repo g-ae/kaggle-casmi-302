@@ -1,0 +1,20 @@
+[project]
+name = "casmi-flyte-starter"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "flyte>=2.10.0",
+    "pyarrow>=17",
+    "numpy>=2",
+    "polars>=1.30",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["casmi_flyte"]
