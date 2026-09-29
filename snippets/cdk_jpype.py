@@ -6,7 +6,7 @@ Returns ({"pubchem": (n, 881), "klekota_roth": (n, 4860), "cdk_substructure": (n
 
 import numpy as np
 
-CDK_JAR = "/path/to/cdk-2.13.jar"  # wherever your image puts the jar
+CDK_JAR = "/opt/cdk-2.13.jar"  # wherever your image puts the jar
 
 
 def featurize_smiles(smiles: list[str], jar: str = CDK_JAR) -> tuple[dict[str, np.ndarray], np.ndarray]:

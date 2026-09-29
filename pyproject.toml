@@ -7,6 +7,10 @@ dependencies = [
     "pyarrow>=17",
     "numpy>=2",
     "polars>=1.30",
+    "torch>=2.14.0",
+    "chemprop>=2.3.1",
+    "jpype1>=1.7.1",
+    "mordred>=0.6.0",
 ]
 
 [dependency-groups]
