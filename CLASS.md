@@ -141,11 +141,11 @@ to orchestration is provided, so you can spend the day on the pipeline:
 
 Show the checkpoint to an instructor before moving on. The times are a guide, not a rule.
 
-| # | By | Checkpoint |
-|---|---|---|
+| # | By | Checkpoint | Info |
+|---|---|---|---|
 | 1 | ~0:45 | You can say how many spectra and how many *distinct structures* there are, and what that means for the featurization work. A first task reads the data on the cluster. |
 | 2 | ~1:45 | RDKit features for a sample of molecules, computed on the cluster, as a parquet table that meets R1. |
-| 3 | ~3:00 | All four featurizers run on the cluster in the same run. You can explain why they can't share one environment. |
+| 3 | ~3:00 | All four featurizers run on the cluster in the same run. You can explain why they can't share one environment. | [Run link](https://flyte.86.119.83.247.sslip.io/v2/domain/development/project/agile-badger/runs/rrfd4px2n8zqvdfdjhpz), The featurizers can't share the same environment as some of the dependencies aren't compatible.
 | 4 | ~4:15 | The work fans out. You can show, with numbers, how wall-clock time changes with the degree of parallelism, where it stops improving, and why. A rerun is instant. |
 | 5 | ~5:30 | The full pipeline, evaluation included, works on a sample. The full run is launched. |
 | 6 | ~6:00 | Wrap-up: your report table, and what you would do next for the Kaggle competition. |

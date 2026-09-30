@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import flyte
@@ -61,6 +62,21 @@ mordred = (
     .with_source_folder(Path("snippets"))
 )
 
+chemeleon = (
+    flyte.Image.from_debian_base(
+        registry="registry.86.119.83.247.sslip.io/agile-badger",
+        name="goncalo-chemeleon",
+        platform=("linux/amd64",),
+    )
+    .with_pip_packages("pyarrow", "numpy", "chemprop", "rdkit==2026.3.3", extra_index_urls=["https://download.pytorch.org/whl/cpu"])    # pytorche tourne uniquement sous CPU (plus léger et en accord avec les requirements du labo)
+    .with_apt_packages("curl")
+    .with_source_folder(Path("casmi_flyte"))
+    .with_source_folder(Path("snippets"))
+    .with_commands(
+        "curl -L -o /opt/chemeleon_mp.pt https://zenodo.org/records/15460715/files/chemeleon_mp.pt?download=1"
+    )
+)
+
 # ENVIRONNEMENTS
 rdkitEnv = flyte.TaskEnvironment(
     name="feat-rdkit",         
@@ -89,10 +105,19 @@ mordredEnv = flyte.TaskEnvironment(
     ]
 )
 
+chemeleonEnv = flyte.TaskEnvironment(
+    name="feat-chemeleon",
+    image=chemeleon,
+    secrets=[
+        flyte.Secret(key="casmi-s3-secret-access-key", as_env_var="SECRET_KEY"),
+        flyte.Secret(key="casmi-s3-access-key-id", as_env_var="ACCESS_KEY"),
+    ]
+)
+
 baseEnv = flyte.TaskEnvironment(
     name="base",         
     image=base_image,
-    depends_on=[rdkitEnv, cdkEnv, mordredEnv],
+    depends_on=[rdkitEnv, cdkEnv, mordredEnv, chemeleonEnv],
     secrets=[
         flyte.Secret(key="casmi-s3-secret-access-key", as_env_var="SECRET_KEY"),
         flyte.Secret(key="casmi-s3-access-key-id", as_env_var="ACCESS_KEY"),
@@ -219,7 +244,7 @@ async def featurize_mordred(unique_molecules: File, sample_size: int | None = 10
     # shape of out: (n_smiles, n_descriptors)
 
     # put all 2d descriptors in array
-    cdk_table = pyarrow.Table.from_arrays(
+    mordred_table = pyarrow.Table.from_arrays(
         [
             pyarrow.array(inchikeys),
             pyarrow.array(valid),
@@ -229,13 +254,50 @@ async def featurize_mordred(unique_molecules: File, sample_size: int | None = 10
     )
 
     # write table for R1
-    return await write_table(cdk_table, "cdk_features.parquet")
+    return await write_table(mordred_table, "mordred_features.parquet")
+
+@chemeleonEnv.task(cache="auto")
+async def featurize_chemeleon(unique_molecules: File, sample_size: int | None = 1000) -> File:
+    from casmi_flyte.tables import read_table, write_table, matrix_column
+    
+    print("Launching Chemeleon featurization on sample size of", sample_size or "whole dataset")
+    table = await read_table(unique_molecules, columns=["inchikey14", "normalized_smiles"])
+    inchikeys = table["inchikey14"].to_pylist()
+    smiles_list = table["normalized_smiles"].to_pylist()
+
+    # prendre sample
+    if sample_size is not None:
+        inchikeys = inchikeys[:sample_size]
+        smiles_list = smiles_list[:sample_size]
+
+    print("Number of unique smiles read:", len(smiles_list))
+
+    out, valid = mordred_featurize_smiles(smiles_list)
+    print("Number of valid molecules:", int(valid.sum()))
+
+    # shape of out: (n_smiles, 2048)
+
+    # put all 2d descriptors in array
+    chem_table = pyarrow.Table.from_arrays(
+        [
+            pyarrow.array(inchikeys),
+            pyarrow.array(valid),
+            matrix_column(out)
+        ],
+        names=["inchikey14", "valid", "chemeleon"],
+    )
+
+    # write table for R1
+    return await write_table(chem_table, "chemeleon_features.parquet")
 
 @baseEnv.task
-async def main(sample_size: int | None = 1000) -> File:
+async def main(sample_size: int | None = 1000) -> list[File]:
     unique_molecules_file = await extract_unique_molecules()
-    rdkit_file = await featurize_rdkit(unique_molecules_file, sample_size=sample_size)
-    cdk_file = await featurize_cdk(unique_molecules_file, sample_size=sample_size)
-    mordred_file = await featurize_mordred(unique_molecules_file, sample_size=sample_size)
+    rdkit_file, cdk_file, mordred_file, chemeleon_file = await asyncio.gather(
+        featurize_rdkit(unique_molecules_file, sample_size=sample_size),
+        featurize_cdk(unique_molecules_file, sample_size=sample_size),
+        featurize_mordred(unique_molecules_file, sample_size=sample_size),
+        featurize_chemeleon(unique_molecules_file, sample_size=sample_size),
+    )
 
-    return mordred_file
+    return [rdkit_file, cdk_file, mordred_file, chemeleon_file]

@@ -6,7 +6,7 @@ from https://zenodo.org/records/15460715. Returns ((n, 2048) float32 embeddings,
 
 import numpy as np
 
-CHEMELEON_WEIGHTS = "/path/to/chemeleon_mp.pt"  # wherever your image puts the weights
+CHEMELEON_WEIGHTS = "/opt/chemeleon_mp.pt"  # wherever your image puts the weights
 
 
 class CheMeleonFingerprint:
